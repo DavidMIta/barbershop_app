@@ -16,7 +16,7 @@ export function Navbar() {
           {user && (
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <span className="text-gray-400 text-sm">{user.email}</span>
+                <span className="text-gray-400 text-sm"></span>
                 {isAdmin && (
                   <span className="bg-blue-600 text-white text-xs font-bold py-1 px-2 rounded">
                     🔑 ADMIN
