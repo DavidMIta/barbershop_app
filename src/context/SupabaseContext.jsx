@@ -86,6 +86,19 @@ export function SupabaseProvider({ children }) {
       });
 
       if (error) throw error;
+
+      // Insertar profile automáticamente
+      const { error: profileError } = await supabase.from("profiles").insert([
+        {
+          id: data.user.id,
+          email: email,
+          full_name: fullName,
+          role: email === "admin@barbershop.com" ? "admin" : "user",
+        },
+      ]);
+
+      if (profileError) throw profileError;
+
       return { success: true, user: data.user };
     } catch (err) {
       setError(err.message);

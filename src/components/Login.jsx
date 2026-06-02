@@ -200,7 +200,7 @@ export function Login() {
             🔑 Demo Admin:
           </p>
           <p className="text-blue-400 text-xs">Email: admin@barbershop.com</p>
-          <p className="text-blue-400 text-xs">Password: admin123</p>
+          <p className="text-blue-400 text-xs">Password: barbershop123</p>
           <button
             type="button"
             onClick={async () => {
@@ -210,14 +210,17 @@ export function Login() {
 
               try {
                 // Intentar login
-                const result = await login("admin@barbershop.com", "admin123");
+                const result = await login(
+                  "admin@barbershop.com",
+                  "barbershop123",
+                );
 
                 if (!result.success) {
                   // Si falla, crear usuario admin
                   console.log("Creating admin user...");
                   const registerResult = await register(
                     "admin@barbershop.com",
-                    "admin123",
+                    "barbershop123",
                     "Admin Barbershop",
                   );
 
@@ -230,7 +233,7 @@ export function Login() {
                     // Intentar login nuevamente
                     const loginResult = await login(
                       "admin@barbershop.com",
-                      "admin123",
+                      "barbershop123",
                     );
                     if (loginResult.success) {
                       setSuccess("¡Bienvenido Administrador!");
@@ -241,7 +244,7 @@ export function Login() {
                 }
 
                 setEmail("admin@barbershop.com");
-                setPassword("admin123");
+                setPassword("barbershop123");
               } catch (err) {
                 setError(err.message || "Error al acceder con admin");
               } finally {
