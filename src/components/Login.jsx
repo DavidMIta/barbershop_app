@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useSupabase } from "../context/SupabaseContext";
 import { Toast } from "./Toast";
 
 export function Login() {
@@ -9,42 +9,53 @@ export function Login() {
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const { login, register } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const { login, register } = useSupabase();
+  const [adminCode, setAdminCode] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
+    setLoading(true);
 
     if (!email || !password) {
       setError("Por favor completa todos los campos");
+      setLoading(false);
       return;
     }
 
-    if (isLogin) {
-      const result = login(email, password);
-      if (!result.success) {
-        setError(result.error);
+    try {
+      if (isLogin) {
+        const result = await login(email, password);
+        if (!result.success) {
+          setError(result.error);
+        } else {
+          setSuccess("¡Bienvenido!");
+          setEmail("");
+          setPassword("");
+        }
       } else {
-        setSuccess("¡Bienvenido!");
-        setEmail("");
-        setPassword("");
+        if (!name) {
+          setError("Por favor ingresa tu nombre");
+          setLoading(false);
+          return;
+        }
+        const result = await register(email, password, name);
+        if (!result.success) {
+          setError(result.error);
+        } else {
+          setSuccess("¡Registro exitoso! Bienvenido a Barbershop.");
+          setEmail("");
+          setPassword("");
+          setName("");
+          setTimeout(() => setIsLogin(true), 1500);
+        }
       }
-    } else {
-      if (!name) {
-        setError("Por favor ingresa tu nombre");
-        return;
-      }
-      const result = register(email, password, name);
-      if (!result.success) {
-        setError(result.error);
-      } else {
-        setSuccess("¡Registro exitoso! Bienvenido a Barbershop.");
-        setEmail("");
-        setPassword("");
-        setName("");
-        setTimeout(() => setIsLogin(true), 1500);
-      }
+    } catch (err) {
+      setError(err.message || "Error en la autenticación");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -103,9 +114,10 @@ export function Login() {
 
           <button
             type="submit"
-            className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200"
+            disabled={loading}
+            className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg transition duration-200"
           >
-            {isLogin ? "Ingresar" : "Registrarse"}
+            {loading ? "Cargando..." : isLogin ? "Ingresar" : "Registrarse"}
           </button>
         </form>
 
@@ -126,23 +138,58 @@ export function Login() {
         </div>
 
         <div className="mt-6 p-4 bg-gray-700 rounded-lg border border-gray-600">
-          <p className="text-gray-300 text-xs font-medium mb-2">
-            Demo Client:
-          </p>
+          <p className="text-gray-300 text-xs font-medium mb-2">Demo Client:</p>
           <p className="text-gray-400 text-xs">Email: demo@barbershop.com</p>
           <p className="text-gray-400 text-xs">Password: 123456</p>
           <button
             type="button"
-            onClick={() => {
-              setEmail("demo@barbershop.com");
-              setPassword("123456");
-              const result = login("demo@barbershop.com", "123456");
-              if (!result.success) {
-                // Crear usuario demo automáticamente
-                register("demo@barbershop.com", "123456", "Demo Usuario", "user");
+            onClick={async () => {
+              setLoading(true);
+              setError("");
+              setSuccess("");
+
+              try {
+                // Intentar login
+                const result = await login("demo@barbershop.com", "123456");
+
+                if (!result.success) {
+                  // Si falla, crear usuario demo
+                  console.log("Creating demo user...");
+                  const registerResult = await register(
+                    "demo@barbershop.com",
+                    "123456",
+                    "Demo Usuario",
+                  );
+
+                  if (!registerResult.success) {
+                    setError(
+                      registerResult.error || "No se pudo crear usuario demo",
+                    );
+                  } else {
+                    setSuccess("Usuario demo creado. Inicia sesión.");
+                    // Intentar login nuevamente
+                    const loginResult = await login(
+                      "demo@barbershop.com",
+                      "123456",
+                    );
+                    if (loginResult.success) {
+                      setSuccess("¡Bienvenido Demo Usuario!");
+                    }
+                  }
+                } else {
+                  setSuccess("¡Bienvenido Demo Usuario!");
+                }
+
+                setEmail("demo@barbershop.com");
+                setPassword("123456");
+              } catch (err) {
+                setError(err.message || "Error al acceder con demo");
+              } finally {
+                setLoading(false);
               }
             }}
-            className="mt-2 text-amber-500 hover:text-amber-400 text-xs font-medium transition"
+            disabled={loading}
+            className="mt-2 text-amber-500 hover:text-amber-400 disabled:opacity-50 text-xs font-medium transition"
           >
             Usar Demo Client
           </button>
@@ -156,16 +203,53 @@ export function Login() {
           <p className="text-blue-400 text-xs">Password: admin123</p>
           <button
             type="button"
-            onClick={() => {
-              setEmail("admin@barbershop.com");
-              setPassword("admin123");
-              const result = login("admin@barbershop.com", "admin123");
-              if (!result.success) {
-                // Crear usuario admin automáticamente
-                register("admin@barbershop.com", "admin123", "Admin Barbershop", "admin");
+            onClick={async () => {
+              setLoading(true);
+              setError("");
+              setSuccess("");
+
+              try {
+                // Intentar login
+                const result = await login("admin@barbershop.com", "admin123");
+
+                if (!result.success) {
+                  // Si falla, crear usuario admin
+                  console.log("Creating admin user...");
+                  const registerResult = await register(
+                    "admin@barbershop.com",
+                    "admin123",
+                    "Admin Barbershop",
+                  );
+
+                  if (!registerResult.success) {
+                    setError(
+                      registerResult.error || "No se pudo crear usuario admin",
+                    );
+                  } else {
+                    setSuccess("✅ Usuario admin creado. Inicia sesión.");
+                    // Intentar login nuevamente
+                    const loginResult = await login(
+                      "admin@barbershop.com",
+                      "admin123",
+                    );
+                    if (loginResult.success) {
+                      setSuccess("¡Bienvenido Administrador!");
+                    }
+                  }
+                } else {
+                  setSuccess("¡Bienvenido Administrador!");
+                }
+
+                setEmail("admin@barbershop.com");
+                setPassword("admin123");
+              } catch (err) {
+                setError(err.message || "Error al acceder con admin");
+              } finally {
+                setLoading(false);
               }
             }}
-            className="mt-2 text-blue-400 hover:text-blue-300 text-xs font-medium transition"
+            disabled={loading}
+            className="mt-2 text-blue-400 hover:text-blue-300 disabled:opacity-50 text-xs font-medium transition"
           >
             Usar Demo Admin
           </button>

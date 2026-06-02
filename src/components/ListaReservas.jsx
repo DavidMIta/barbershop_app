@@ -1,18 +1,83 @@
-import { useAuth } from "../context/AuthContext";
+import { useEffect, useState } from "react";
+import { useSupabase } from "../context/SupabaseContext";
 import { obtenerServicioInfo, formatearFecha } from "../utils/timeSlots";
 import { Toast, useToast } from "./Toast";
 
 export function ListaReservas() {
-  const { getReservasUsuario, cancelReserva } = useAuth();
-  const reservas = getReservasUsuario();
+  const { user, supabase } = useSupabase();
+  const [reservas, setReservas] = useState([]);
+  const [loading, setLoading] = useState(true);
   const { toasts, showToast } = useToast();
 
-  const handleCancel = (reservaId) => {
-    if (window.confirm("¿Estás seguro de que quieres cancelar esta reserva?")) {
-      cancelReserva(reservaId);
-      showToast("Reserva cancelada", "error");
+  useEffect(() => {
+    cargarReservas();
+
+    // Suscribirse a cambios en tiempo real
+    const subscription = supabase
+      .channel("reservations")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "reservations",
+          filter: `user_id=eq.${user?.id}`,
+        },
+        () => {
+          cargarReservas();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [user?.id]);
+
+  const cargarReservas = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("reservations")
+        .select("*")
+        .eq("user_id", user?.id)
+        .order("date", { ascending: true });
+
+      if (error) throw error;
+      setReservas(data);
+    } catch (error) {
+      console.error("Error cargando reservas:", error);
+      showToast("Error cargando reservas", "error");
+    } finally {
+      setLoading(false);
     }
   };
+
+  const handleCancel = async (reservaId) => {
+    if (window.confirm("¿Estás seguro de que quieres cancelar esta reserva?")) {
+      try {
+        const { error } = await supabase
+          .from("reservations")
+          .delete()
+          .eq("id", reservaId);
+
+        if (error) throw error;
+        showToast("Reserva cancelada", "error");
+        cargarReservas();
+      } catch (error) {
+        console.error("Error cancelando reserva:", error);
+        showToast("Error al cancelar la reserva", "error");
+      }
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-gray-800 rounded-lg shadow-lg p-8 border border-gray-700 text-center">
+        <p className="text-gray-400">Cargando tus reservas...</p>
+      </div>
+    );
+  }
 
   if (reservas.length === 0) {
     return (
@@ -27,8 +92,8 @@ export function ListaReservas() {
 
   // Ordenar reservas por fecha y hora
   const reservasOrdenadas = [...reservas].sort((a, b) => {
-    const dateA = new Date(`${a.fecha}T${a.hora}`);
-    const dateB = new Date(`${b.fecha}T${b.hora}`);
+    const dateA = new Date(`${a.date}T${a.time}`);
+    const dateB = new Date(`${b.date}T${b.time}`);
     return dateB - dateA; // Más recientes primero
   });
 
@@ -48,8 +113,8 @@ export function ListaReservas() {
 
         <div className="space-y-4">
           {reservasOrdenadas.map((reserva) => {
-            const servicio = obtenerServicioInfo(reserva.servicio);
-            const fechaObj = new Date(`${reserva.fecha}T${reserva.hora}`);
+            const servicio = obtenerServicioInfo(reserva.service);
+            const fechaObj = new Date(`${reserva.date}T${reserva.time}`);
             const esPasada = fechaObj < new Date();
 
             return (
@@ -67,23 +132,27 @@ export function ListaReservas() {
                       <h3 className="text-lg font-semibold text-white">
                         {servicio.name}
                       </h3>
-                      {esPasada && (
+                      {reserva.completed ? (
+                        <span className="text-xs bg-green-600 text-white px-2 py-1 rounded">
+                          ✅ Completada
+                        </span>
+                      ) : esPasada ? (
                         <span className="text-xs bg-gray-600 text-gray-300 px-2 py-1 rounded">
                           Pasada
                         </span>
-                      )}
+                      ) : null}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <p className="text-gray-400">Fecha</p>
                         <p className="text-white font-medium">
-                          {formatearFecha(reserva.fecha)}
+                          {formatearFecha(reserva.date)}
                         </p>
                       </div>
                       <div>
                         <p className="text-gray-400">Hora</p>
-                        <p className="text-white font-medium">{reserva.hora}</p>
+                        <p className="text-white font-medium">{reserva.time}</p>
                       </div>
                       <div>
                         <p className="text-gray-400">Duración</p>
@@ -100,10 +169,10 @@ export function ListaReservas() {
                     </div>
                   </div>
 
-                  {!esPasada && (
+                  {!esPasada && !reserva.completed && (
                     <button
                       onClick={() => handleCancel(reserva.id)}
-                      className="ml-4 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition duration-200 text-sm white-nowrap"
+                      className="ml-4 px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition"
                     >
                       Cancelar
                     </button>

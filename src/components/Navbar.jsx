@@ -1,7 +1,8 @@
-import { useAuth } from "../context/AuthContext";
+import { useSupabase } from "../context/SupabaseContext";
 
 export function Navbar() {
-  const { currentUser, logout } = useAuth();
+  const { user, logout } = useSupabase();
+  const isAdmin = user?.user_metadata?.role === "admin";
 
   return (
     <nav className="bg-gray-900 border-b border-gray-700 shadow-lg">
@@ -12,10 +13,11 @@ export function Navbar() {
             <h1 className="text-2xl font-bold text-amber-500">Barbershop</h1>
           </div>
 
-          {currentUser && (
+          {user && (
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                {currentUser.role === "admin" && (
+                <span className="text-gray-400 text-sm">{user.email}</span>
+                {isAdmin && (
                   <span className="bg-blue-600 text-white text-xs font-bold py-1 px-2 rounded">
                     🔑 ADMIN
                   </span>

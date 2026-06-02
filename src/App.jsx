@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { AuthProvider, useAuth } from "./context/AuthContext";
+import { useState } from "react";
+import { useSupabase } from "./context/SupabaseContext";
 import { Navbar } from "./components/Navbar";
 import { Login } from "./components/Login";
 import { ReservaForm } from "./components/ReservaForm";
@@ -8,20 +8,23 @@ import { AdminPanel } from "./components/AdminPanel";
 import { AdminMisReservas } from "./components/AdminMisReservas";
 
 function AppContent() {
-  const { currentUser, isAdmin } = useAuth();
-  const [activeTab, setActiveTab] = useState(isAdmin() ? "dashboard" : "reservas");
+  const { user } = useSupabase();
+  const isAdmin = user?.user_metadata?.role === "admin";
+  const [activeTab, setActiveTab] = useState(
+    isAdmin ? "dashboard" : "reservas",
+  );
 
   // Cambiar a pestaña de mis reservas después de una reserva exitosa
   const handleReservaExitosa = () => {
     setActiveTab("misreservas");
   };
 
-  if (!currentUser) {
+  if (!user) {
     return <Login />;
   }
 
   // INTERFACE PARA ADMINISTRADOR
-  if (isAdmin()) {
+  if (isAdmin) {
     return (
       <>
         <Navbar />
@@ -157,11 +160,7 @@ function AppContent() {
 }
 
 function App() {
-  return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
-  );
+  return <AppContent />;
 }
 
 export default App;

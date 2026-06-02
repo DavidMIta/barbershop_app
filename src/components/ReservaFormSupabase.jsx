@@ -1,4 +1,6 @@
-import { useState, useMemo, useEffect } from "react";
+// EJEMPLO: Cómo adaptar ReservaForm para usar Supabase
+
+import { useState, useMemo } from "react";
 import { useSupabase } from "../context/SupabaseContext";
 import {
   generarTimeSlots,
@@ -9,10 +11,9 @@ import {
 } from "../utils/timeSlots";
 import { Toast } from "./Toast";
 
-export function ReservaForm({ onReservaExitosa }) {
+export function ReservaFormSupabase({ onReservaExitosa }) {
   const { user, supabase } = useSupabase();
   const [reservas, setReservas] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     nombre: "",
     fecha: "",
@@ -21,10 +22,16 @@ export function ReservaForm({ onReservaExitosa }) {
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const servicios = obtenerServicios();
 
-  // Cargar reservas del día seleccionado
+  const timeSlots = useMemo(() => {
+    if (!formData.fecha) return [];
+    return generarTimeSlots(formData.fecha, reservas);
+  }, [formData.fecha, reservas]);
+
+  // Cargar reservas existentes del día seleccionado
   const cargarReservasDel = async (fecha) => {
     try {
       const { data, error } = await supabase
@@ -38,11 +45,6 @@ export function ReservaForm({ onReservaExitosa }) {
       console.error("Error cargando reservas:", err);
     }
   };
-
-  const timeSlots = useMemo(() => {
-    if (!formData.fecha) return [];
-    return generarTimeSlots(formData.fecha, reservas);
-  }, [formData.fecha, reservas]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -119,6 +121,7 @@ export function ReservaForm({ onReservaExitosa }) {
         hora: "",
         servicio: "corte",
       });
+
       if (onReservaExitosa) {
         setTimeout(() => onReservaExitosa(data), 500);
       }
@@ -134,47 +137,28 @@ export function ReservaForm({ onReservaExitosa }) {
       {error && <Toast message={error} type="error" />}
       {success && <Toast message={success} type="success" />}
 
-      <h2 className="text-2xl font-bold text-amber-500 mb-6">NuevaReserva</h2>
+      <h2 className="text-2xl font-bold text-amber-500 mb-6">Nueva Reserva</h2>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Nombre */}
         <div>
-          <label className="block text-gray-300 text-sm font-medium mb-2">
-            Nombre completo *
+          <label className="block text-sm font-semibold text-gray-300 mb-2">
+            Nombre
           </label>
           <input
             type="text"
             name="nombre"
             value={formData.nombre}
             onChange={handleChange}
-            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
-            placeholder="Tu nombre"
+            placeholder="Tu nombre completo"
+            className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-amber-500"
           />
-        </div>
-
-        {/* Servicio */}
-        <div>
-          <label className="block text-gray-300 text-sm font-medium mb-2">
-            Servicio *
-          </label>
-          <select
-            name="servicio"
-            value={formData.servicio}
-            onChange={handleChange}
-            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
-          >
-            {servicios.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name} - {s.duration} min - ${s.price}
-              </option>
-            ))}
-          </select>
         </div>
 
         {/* Fecha */}
         <div>
-          <label className="block text-gray-300 text-sm font-medium mb-2">
-            Fecha *
+          <label className="block text-sm font-semibold text-gray-300 mb-2">
+            Fecha
           </label>
           <input
             type="date"
@@ -182,53 +166,58 @@ export function ReservaForm({ onReservaExitosa }) {
             value={formData.fecha}
             onChange={handleChange}
             min={obtenerFechaMinima()}
-            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+            className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-amber-500"
           />
-          {formData.fecha && (
-            <p className="text-gray-400 text-sm mt-1">
-              {formatearFecha(formData.fecha)}
-            </p>
-          )}
         </div>
 
         {/* Hora */}
-        <div>
-          <label className="block text-gray-300 text-sm font-medium mb-2">
-            Hora *
-          </label>
-          {formData.fecha ? (
+        {timeSlots.length > 0 && (
+          <div>
+            <label className="block text-sm font-semibold text-gray-300 mb-2">
+              Hora Disponible
+            </label>
             <select
               name="hora"
               value={formData.hora}
               onChange={handleChange}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-amber-500"
             >
-              <option value="">-- Selecciona una hora --</option>
-              {timeSlots.map((slot, idx) => (
-                <option
-                  key={idx}
-                  value={slot.time}
-                  disabled={!slot.disponible}
-                  className={!slot.disponible ? "bg-gray-600" : ""}
-                >
-                  {slot.time} {!slot.disponible && "(No disponible)"}
+              <option value="">Selecciona una hora</option>
+              {timeSlots.map((slot) => (
+                <option key={slot} value={slot}>
+                  {slot}
                 </option>
               ))}
             </select>
-          ) : (
-            <p className="text-gray-500 text-sm italic">
-              Selecciona una fecha primero
-            </p>
-          )}
+          </div>
+        )}
+
+        {/* Servicio */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-300 mb-2">
+            Servicio
+          </label>
+          <select
+            name="servicio"
+            value={formData.servicio}
+            onChange={handleChange}
+            className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-amber-500"
+          >
+            {servicios.map((servicio) => (
+              <option key={servicio} value={servicio}>
+                {servicio.charAt(0).toUpperCase() + servicio.slice(1)}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {/* Botón enviar */}
+        {/* Botón */}
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition duration-200 mt-6"
+          className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? "Creando reserva..." : "Reservar cita"}
+          {loading ? "Guardando..." : "Confirmar Reserva"}
         </button>
       </form>
     </div>
